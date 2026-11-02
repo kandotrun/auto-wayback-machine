@@ -10,11 +10,12 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   const alarms = [];
   let archiveStatus = 200;
   let online = true;
+  let httpStatus = 200;
   let aiHandler = async () => ({ done: true, message: { content: '{"status":"safe","category":"none"}' } });
   const event = (name) => ({ addListener(fn) { listeners[name] = fn; } });
   t.mock.method(Date, "now", () => now);
   t.mock.method(globalThis, "setTimeout", (fn, ms) => {
-    if (ms !== 1500 && ms !== 20_000 && ms !== 120_000) {
+    if (ms !== 1500 && ms !== 60_000 && ms !== 120_000) {
       now += ms;
       queueMicrotask(fn);
     }
@@ -38,9 +39,9 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
     requests.push({ url, options });
     if (url.includes("/api/tags")) {
       if (!online) throw new Error("offline");
-      return { ok: true };
+      return { ok: httpStatus === 200, status: httpStatus };
     }
-    if (url.includes("/api/chat")) return { ok: true, json: () => aiHandler(JSON.parse(options.body)) };
+    if (url.includes("/api/chat")) return { ok: httpStatus === 200, json: () => aiHandler(JSON.parse(options.body)) };
     return { status: archiveStatus, body: { async cancel() {} } };
   });
   t.after(() => { delete globalThis.chrome; });
@@ -192,6 +193,28 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   now += 30_000; // cache expired, still before aiRetryAt
   await processQueue();
   assert.equal(saves().length, 1); // auto may bypass deferred checks once server goes away
+
+  for (const mode of ["auto", "on"]) {
+    reset();
+    online = true;
+    httpStatus = 403;
+    now += 30_000;
+    state.settings.aiCheckMode = mode;
+    await enqueue("https://example.com/origin-" + mode, "Title");
+    await processQueue();
+    assert.equal(saves().length, mode === "auto" ? 1 : 0);
+    assert.equal(aiRequests().length, mode === "auto" ? 0 : 1);
+    if (mode === "auto") assert.equal(state.queue.length, 0);
+    else {
+      now += 60_000;
+      await processQueue();
+      now += 60_000;
+      await processQueue();
+      assert.equal(state.log[0].status, "held-ai-unavailable");
+      assert.equal(saves().length, 0);
+    }
+  }
+  httpStatus = 200;
 
   reset();
   archiveStatus = 429; // Keep the captured URLs queued for inspection.
