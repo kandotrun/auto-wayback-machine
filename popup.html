@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <h1>🪶 Wayback Auto Archiver</h1>
+  <label class="row"><input type="checkbox" id="enabled"> 自動保存 ON</label>
+  <div class="stats">
+    <div>送信済み（累計）: <b id="submitted">-</b></div>
+    <div>キュー待ち: <b id="queued">-</b></div>
+    <div>スキップ: <b id="skipped">-</b> / 失敗: <b id="failed">-</b></div>
+  </div>
+  <button id="saveNow">このページを今すぐ保存</button>
+  <div id="msg"></div>
+  <h2>最近の送信</h2>
+  <ul id="log"></ul>
+  <button id="openOptions" class="subtle">設定（除外リストなど）</button>
+  <script src="popup.js"></script>
+</body>
+</html>
