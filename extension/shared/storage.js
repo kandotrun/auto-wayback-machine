@@ -31,3 +31,14 @@ export async function updateSettings(patch) {
 export function requestProcessing() {
   return chrome.runtime.sendMessage({ type: "processQueue" });
 }
+
+// Serialize worker-side read/modify/write operations; never hold this across fetch.
+let mutationChain = Promise.resolve();
+export function mutateState(transform) {
+  const operation = mutationChain.then(async () => {
+    const patch = transform(await getState());
+    if (patch) await setState(patch);
+  });
+  mutationChain = operation.catch(() => {});
+  return operation;
+}

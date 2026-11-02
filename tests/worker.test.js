@@ -14,7 +14,7 @@ test("worker registers listeners, resumes storage, backs off and preserves manua
   const realClear = globalThis.clearTimeout;
   Date.now = () => now;
   globalThis.setTimeout = (fn, ms) => {
-    if (ms !== 120_000) {
+    if (ms !== 120_000 && ms !== 20_000) {
       delays.push(ms);
       now += ms;
       queueMicrotask(fn);
@@ -49,7 +49,7 @@ test("worker registers listeners, resumes storage, backs off and preserves manua
   await import("../extension/background.js");
   const { processQueue, enqueue } = await import("../extension/background/queue.js");
   const settle = async () => {
-    for (let i = 0; i < 100; i++) await Promise.resolve();
+    for (let i = 0; i < 300; i++) await Promise.resolve();
   };
   assert.deepEqual(Object.keys(listeners).sort(),
     ["alarm", "completed", "history", "installed", "message", "startup"]);

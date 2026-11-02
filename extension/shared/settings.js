@@ -1,5 +1,8 @@
 export const DEFAULT_SETTINGS = {
   enabled: true,
+  aiCheckEnabled: false,
+  aiCheckEndpoint: "http://127.0.0.1:11434",
+  aiCheckModel: "qwen3.8:27b-mlx",
   captureOutlinks: false,
   outlinksSameDomainOnly: true,
   outlinksMaxPerPage: 30,

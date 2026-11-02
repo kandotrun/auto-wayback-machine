@@ -6,3 +6,5 @@ body { max-width: 640px; margin: 24px auto; padding: 0 16px; font-size: 14px; li
   button { margin-top: 18px; padding: 8px 20px; }
   #saved { color: #2b6cb0; margin-left: 10px; }
 #clear { margin-left: 16px; }
+fieldset { margin-top: 20px; border: 1px solid #ccc; }
+input[type="url"], input[type="text"] { display: block; width: 100%; box-sizing: border-box; }

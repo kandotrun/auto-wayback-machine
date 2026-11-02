@@ -1,6 +1,5 @@
 // Register MV3 listeners synchronously at module evaluation.
 import { getState, setState } from "./shared/storage.js";
-import { normalise, shouldSkip } from "./shared/url.js";
 import { enqueue, enqueueOutlinks, processQueue } from "./background/queue.js";
 
 import { canCollectOutlinks } from "./shared/outlinks.js";
@@ -56,21 +55,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   if (msg?.type === "saveNow" && msg.url) {
-    (async () => {
-      // Bypass dedupe for an explicit click, but never the safety filters.
-      const { settings } = await getState();
-      const u = normalise(msg.url, settings);
-      if (!u) return sendResponse({ ok: false, reason: "unsupported URL" });
-      const reason = shouldSkip(u, settings);
-      if (reason) return sendResponse({ ok: false, reason });
-      const { queue } = await getState();
-      if (!queue.some((q) => q.url === u.href)) {
-        queue.unshift({ url: u.href, title: typeof msg.title === "string" ? msg.title : "", queuedAt: Date.now(), tries: 0 });
-        await setState({ queue });
-      }
-      processQueue();
-      sendResponse({ ok: true });
-    })();
+    // Explicit clicks bypass saved-history dedupe, never rules or AI checks.
+    enqueue(msg.url, typeof msg.title === "string" ? msg.title : "", true)
+      .then(sendResponse).catch(() => sendResponse({ ok: false, reason: "queue error" }));
     return true;
   }
   if (msg?.type === "processQueue") processQueue();
