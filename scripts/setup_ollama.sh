@@ -61,25 +61,43 @@ extension_ready() {
     -H "Origin: chrome-extension://auto-wayback-machine" "$OLLAMA_API/api/tags"
 }
 
+SERVICE_RESTARTED=0
 if [ "$(uname)" = "Darwin" ] && ready; then
   if [ "$ORIGINS_CHANGED" -eq 1 ] || ! extension_ready; then
-    echo "起動中の Ollama に OLLAMA_ORIGINS を反映するため Ollama.app を再起動します。既存プロセスは launchctl setenv の変更を読み込みません。"
-    osascript -e 'tell application "Ollama" to quit'
-    STOPPED=0
-    for ((attempt = 1; attempt <= 30; attempt++)); do
-      if ! ready; then STOPPED=1; break; fi
-      if [ "$attempt" -lt 30 ]; then sleep 2; fi
+    echo "起動中の Ollama に OLLAMA_ORIGINS を反映するため再起動します。既存プロセスは launchctl setenv の変更を読み込みません。"
+    SERVICE_TARGET=""
+    for label in sh.brew.ollama homebrew.mxcl.ollama; do
+      target="gui/$(id -u)/$label"
+      if launchctl print "$target" >/dev/null 2>&1; then
+        SERVICE_TARGET="$target"
+        break
+      fi
     done
-    if [ "$STOPPED" -ne 1 ]; then
-      echo "Ollama が時間内に終了しませんでした。手動で終了してセットアップを再実行してください。" >&2
-      exit 1
+    if [ -n "$SERVICE_TARGET" ]; then
+      echo "launchd サービス $SERVICE_TARGET を再起動します。"
+      launchctl kickstart -k "$SERVICE_TARGET"
+      SERVICE_RESTARTED=1
+    else
+      echo "Ollama.app を終了・再起動します。"
+      osascript -e 'tell application "Ollama" to quit'
+      STOPPED=0
+      for ((attempt = 1; attempt <= 30; attempt++)); do
+        if ! ready; then STOPPED=1; break; fi
+        if [ "$attempt" -lt 30 ]; then sleep 2; fi
+      done
+      if [ "$STOPPED" -ne 1 ]; then
+        echo "Ollama が時間内に終了しませんでした。手動で終了してセットアップを再実行してください。" >&2
+        exit 1
+      fi
     fi
   fi
 fi
 
 if ! extension_ready; then
   echo "Ollama を起動します。API の準備を最大約 2 分待ちます。"
-  if [ "$(uname)" = "Darwin" ] && open -a Ollama --args hidden; then
+  if [ "$SERVICE_RESTARTED" -eq 1 ]; then
+    : # launchd owns this process; wait without starting a second server.
+  elif [ "$(uname)" = "Darwin" ] && open -a Ollama --args hidden; then
     : # Ollama.app is the standard macOS launcher.
   else
     nohup "$OLLAMA_BIN" serve >/dev/null 2>&1 </dev/null &

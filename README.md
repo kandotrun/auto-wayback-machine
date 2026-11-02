@@ -106,7 +106,9 @@ Ollama の [`POST /api/chat`](https://docs.ollama.com/api/chat) を使い、`str
 
 疎通確認にはページの情報を含めず、最大 1.5 秒で打ち切ります。結果は接続先ごとに 30 秒キャッシュし、同時確認も 1 回にまとめます。`auto` は AI の実行保証が必要なモードではありません。**接続不能時にも送信を止めたい場合は `on` を選んでください。** 疎通確認が HTTP 403 / 404 / 503 等なら AI をスキップして通常送信します。疎通確認が成功した後の判定失敗は、従来どおり再試行・保留になります。
 
-Mac のセットアップは `launchctl` の `OLLAMA_ORIGINS` に `chrome-extension://*` を追加し、既存の許可値も維持します。これは Chrome 拡張のオリジン全体を許可する設定です。起動済みプロセスは `launchctl setenv` の変更を読み込まないため、許可値を変更した場合、または通常の API は応答するのに拡張 Origin 付きの確認が失敗する場合は、セットアップが理由を表示して Ollama.app を終了・再起動し、拡張 Origin 付き API の成功まで上限つきで待ちます。既に許可値が設定済みで拡張 Origin の確認も成功する場合は再起動しません。手動起動のサーバーなどで終了・回復できない場合は警告となるため、サーバーを手動で再起動してセットアップを再実行してください。許可をこの拡張だけに絞る場合や、手動導入で Ollama が拡張からのリクエストを拒否する場合は、`chrome://extensions/` に表示される拡張 ID のオリジンを `OLLAMA_ORIGINS` に許可します。Mac の Ollama アプリなら、ID を置き換えて次を実行し、Ollama を再起動します。設定の詳細は [Ollama FAQ](https://docs.ollama.com/faq#how-can-i-allow-additional-web-origins-to-access-ollama) を参照してください。
+Mac のセットアップは `launchctl` の `OLLAMA_ORIGINS` に `chrome-extension://*` を追加し、既存の許可値も維持します。これは Chrome 拡張のオリジン全体を許可する設定です。起動済みプロセスは `launchctl setenv` の変更を読み込まないため、許可値を変更した場合、または通常の API は応答するのに拡張 Origin 付きの確認が失敗する場合は、セットアップが理由を表示して再起動し、拡張 Origin 付き API の成功まで上限つきで待ちます。GUI ドメインに `sh.brew.ollama` または `homebrew.mxcl.ollama` が登録されている場合は `launchctl kickstart -k gui/<uid>/<ラベル>` でサービスを再起動し、それ以外は Ollama.app を終了・再起動します。サービスを再起動した場合は別のアプリやサーバーを起動しません。既に許可値が設定済みで拡張 Origin の確認も成功する場合は再起動しません。手動起動のサーバーなどで終了・回復できない場合は警告となるため、サーバーを手動で再起動してセットアップを再実行してください。許可をこの拡張だけに絞る場合や、手動導入で Ollama が拡張からのリクエストを拒否する場合は、`chrome://extensions/` に表示される拡張 ID のオリジンを `OLLAMA_ORIGINS` に許可します。Mac の Ollama アプリなら、ID を置き換えて次を実行し、Ollama を再起動します。設定の詳細は [Ollama FAQ](https://docs.ollama.com/faq#how-can-i-allow-additional-web-origins-to-access-ollama) を参照してください。
+
+Homebrew / launchd 版はメニューバーアイコンがなくても動作します。手動で環境変数を変更した場合は、登録されているラベルに合わせて `launchctl kickstart -k "gui/$(id -u)/sh.brew.ollama"`（または `homebrew.mxcl.ollama`）で再起動してください。この自動検出は現在のユーザーの GUI ドメインが対象です。システムサービスや独自ラベルの場合は、その起動方法に合わせて手動で再起動します。
 
 ```bash
 launchctl setenv OLLAMA_ORIGINS "chrome-extension://ここを拡張IDに置換"

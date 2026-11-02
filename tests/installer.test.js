@@ -17,7 +17,7 @@ function command(name) {
   return resolvedCommands.get(name);
 }
 
-function fixture(t, { installed = false, mode = "ok", skip = false, model, running = false, originsConfigured = false } = {}) {
+function fixture(t, { installed = false, mode = "ok", skip = false, model, running = false, originsConfigured = false, service = "" } = {}) {
   const root = mkdtempSync(join(tmpdir(), "awm-installer-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const bin = join(root, "bin");
@@ -26,7 +26,7 @@ function fixture(t, { installed = false, mode = "ok", skip = false, model, runni
   mkdirSync(bin);
   mkdirSync(join(source, "scripts"), { recursive: true });
   mkdirSync(join(source, "extension"));
-  for (const name of ["bash", "sh", "git", "python3", "mktemp", "rm", "cat", "chmod", "nohup"]) {
+  for (const name of ["bash", "sh", "git", "python3", "mktemp", "rm", "cat", "chmod", "nohup", "id"]) {
     symlinkSync(command(name), join(bin, name));
   }
   const script = (name, text) => writeFileSync(join(bin, name), "#!/bin/sh\n" + text + "\n", { mode: 0o755 });
@@ -45,8 +45,14 @@ if [ "$1" = "pull" ] && [ "$AWM_TEST_MODE" = "pull-fail" ]; then exit 1; fi
   script("launchctl", `echo "launchctl $*" >> "$AWM_TEST_LOG"
 if [ "$1" = "getenv" ]; then
   if [ -f "$AWM_TEST_ORIGINS" ]; then cat "$AWM_TEST_ORIGINS"; else echo "https://existing.example"; fi
-else
+elif [ "$1" = "setenv" ]; then
   echo "$3" > "$AWM_TEST_ORIGINS"
+elif [ "$1" = "print" ]; then
+  [ -n "$AWM_TEST_SERVICE" ] && [ "$2" = "gui/$(id -u)/$AWM_TEST_SERVICE" ]
+elif [ "$1" = "kickstart" ]; then
+  [ "$AWM_TEST_MODE" != "kickstart-fail" ] || exit 1
+  : > "$AWM_TEST_READY"
+  if [ "$AWM_TEST_MODE" != "service-timeout" ]; then : > "$AWM_TEST_RESTARTED"; fi
 fi`);
   script("osascript", `echo "osascript $*" >> "$AWM_TEST_LOG"
 if [ "$AWM_TEST_MODE" != "quit-timeout" ]; then rm -f "$AWM_TEST_READY"; fi`);
@@ -79,7 +85,7 @@ INSTALLER
     ;;
   http://127.0.0.1:11434/api/tags)
     [ -f "$AWM_TEST_READY" ] && [ "$AWM_TEST_MODE" != "timeout" ] || exit 22
-    if [ "$origin" = "1" ] && [ "$AWM_TEST_MODE" = "stale-origin" ]; then
+    if [ "$origin" = "1" ] && { [ "$AWM_TEST_MODE" = "stale-origin" ] || [ "$AWM_TEST_MODE" = "service-timeout" ]; }; then
       # Only a new app process inherits the configured origins.
       [ -f "$AWM_TEST_RESTARTED" ] || exit 22
     fi ;;
@@ -102,7 +108,7 @@ esac`);
   if (originsConfigured) writeFileSync(origins, "https://existing.example,chrome-extension://*");
   const env = {
     ...gitEnv, PATH: bin, AUTO_WAYBACK_DIR: dest,
-    AWM_TEST_MODE: mode, AWM_TEST_LOG: log, AWM_TEST_READY: ready,
+    AWM_TEST_SERVICE: service, AWM_TEST_MODE: mode, AWM_TEST_LOG: log, AWM_TEST_READY: ready,
     AWM_TEST_ORIGINS: origins, AWM_TEST_RESTARTED: join(root, "restarted"),
     AWM_TEST_BIN: bin, AWM_TEST_STUB: ollamaStub,
     AWM_SKIP_OLLAMA: skip ? "1" : "0",
@@ -187,3 +193,25 @@ test("app quit timeout warns without launching another server or pulling", (t) =
   assert.ok(!result.calls.includes("open -a Ollama"));
   assert.ok(!result.calls.includes("ollama pull"));
 });
+
+for (const service of ["sh.brew.ollama", "homebrew.mxcl.ollama"]) {
+  test("launchd " + service + " restarts stale origins once without opening the app", (t) => {
+    const f = fixture(t, { installed: true, running: true, originsConfigured: true, mode: "stale-origin", service });
+    const first = f.run();
+    assert.ok(first.calls.includes("launchctl kickstart -k gui/" + process.getuid() + "/" + service));
+    assert.ok(!first.calls.includes("osascript"));
+    assert.ok(!first.calls.includes("open -a Ollama"));
+    assert.ok(first.calls.indexOf("launchctl kickstart") < first.calls.indexOf("ollama pull"));
+    assert.ok(!first.stderr.includes("警告"));
+    assert.equal((f.run().calls.match(/launchctl kickstart/g) || []).length, 1);
+  });
+}
+for (const mode of ["kickstart-fail", "service-timeout"]) {
+  test("launchd " + mode + " warns without starting the app or pulling", (t) => {
+    const result = fixture(t, { installed: true, running: true, service: "sh.brew.ollama", mode }).run();
+    assert.match(result.stderr, /警告: Ollama/);
+    assert.ok(!result.calls.includes("osascript"));
+    assert.ok(!result.calls.includes("open -a Ollama"));
+    assert.ok(!result.calls.includes("ollama pull"));
+  });
+}
