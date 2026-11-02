@@ -61,7 +61,7 @@ $("save").addEventListener("click", async () => {
 
 $("clear").addEventListener("click", async () => {
   await setState({
-    savedMap: {}, log: [], queue: [],
+    savedMap: {}, log: [], queue: [], backoffUntil: 0,
     stats: { submitted: 0, skipped: 0, failed: 0 },
   });
   $("saved").textContent = "クリアしました";

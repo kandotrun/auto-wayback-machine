@@ -82,6 +82,10 @@ test("worker registers listeners, resumes storage, backs off and preserves manua
     assert.equal(state.queue.length, 1);
     assert.equal(state.queue[0].tries, 1);
     assert.deepEqual(alarms.at(-1), ["retryQueue", { delayInMinutes: 5 }]);
+    const count = requests.length;
+    await processQueue(); // AI/other alarms must not bypass the Wayback cooldown.
+    assert.equal(requests.length, count);
+    now += 5 * 60_000;
   }
   status = 500;
   state.queue = [{ url: "https://example.com/fail", queuedAt: now, tries: 0 }];

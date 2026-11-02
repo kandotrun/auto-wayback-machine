@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { isDuplicate, pruneMap } from "../extension/background/history.js";
 import { DEFAULT_SETTINGS } from "../extension/shared/settings.js";
 
-test("initial settings remain unchanged", () => {
+test("legacy defaults remain unchanged and new features are opt-in", () => {
   assert.deepEqual(DEFAULT_SETTINGS, {
     enabled: true, aiCheckEnabled: false, aiCheckEndpoint: "http://127.0.0.1:11434",
     aiCheckModel: "qwen3.8:27b-mlx", captureOutlinks: false, outlinksSameDomainOnly: true, outlinksMaxPerPage: 30,

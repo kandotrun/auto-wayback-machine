@@ -104,6 +104,14 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   assert.ok(alarms.some(([name]) => name === "retryAi"));
 
   reset();
+  state.queue = [{ url: "https://example.com/interrupted", title: "Title", queuedAt: now,
+    tries: 0, aiTries: 3, aiRetryAt: now - 1 }];
+  await processQueue();
+  assert.equal(requests.length, 0);
+  assert.equal(state.queue.length, 0);
+  assert.equal(state.log[0].status, "held-ai-unavailable");
+
+  reset();
   state.settings.aiCheckEnabled = false;
   await enqueue("https://example.com/off", "Title");
   await processQueue();
@@ -119,6 +127,24 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   await processQueue();
   assert.equal(saves().length, 0);
   assert.equal(state.log[0].status, "skipped-rule");
+
+  reset();
+  aiHandler = async () => {
+    state.queue = []; // Clear while AI is in flight must prevent the save.
+    return { done: true, message: { content: '{"status":"safe","category":"none"}' } };
+  };
+  await enqueue("https://example.com/cleared", "Title");
+  await processQueue();
+  assert.equal(saves().length, 0);
+
+  reset();
+  aiHandler = async () => {
+    state.settings.enabled = false;
+    return { done: true, message: { content: '{"status":"safe","category":"none"}' } };
+  };
+  await enqueue("https://example.com/paused", "Title");
+  await processQueue();
+  assert.equal(saves().length, 0);
 
   reset();
   archiveStatus = 429; // Keep the captured URLs queued for inspection.

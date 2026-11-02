@@ -2,11 +2,12 @@ import { DEFAULT_SETTINGS } from "./settings.js";
 
 export async function getState() {
   const s = await chrome.storage.local.get([
-    "settings", "queue", "savedMap", "log", "stats",
+    "settings", "queue", "savedMap", "log", "stats", "backoffUntil",
   ]);
   return {
     settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}) },
     queue: s.queue || [],
+    backoffUntil: s.backoffUntil || 0,
     savedMap: s.savedMap || {},
     log: s.log || [],
     stats: s.stats || { submitted: 0, skipped: 0, failed: 0 },

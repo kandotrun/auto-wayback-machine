@@ -81,7 +81,7 @@ async function drainQueue() {
     while (true) {
       const state = await getState();
       const { settings } = state;
-      if (!settings.enabled) break;
+      if (!settings.enabled || state.backoffUntil > Date.now()) break;
       // Deferred AI failures do not block the remaining queue.
       let item = state.queue.find((q) => !q.aiRetryAt || q.aiRetryAt <= Date.now());
       if (!item) break;
@@ -89,7 +89,7 @@ async function drainQueue() {
       const wait = lastSentAt + settings.minIntervalSec * 1000 - Date.now();
       if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
       let fresh = await getState();
-      if (!fresh.settings.enabled) break;
+      if (!fresh.settings.enabled || fresh.backoffUntil > Date.now()) break;
       item = fresh.queue.find((q) => sameItem(q, item));
       if (!item) continue;
       if (!allowedUrl(item.url, fresh.settings)) {
@@ -97,6 +97,8 @@ async function drainQueue() {
         continue;
       }
 
+      let approvedConfig = null;
+      let approvedTitle = null;
       if (fresh.settings.aiCheckEnabled) {
         if ((item.aiTries || 0) >= AI_MAX_ATTEMPTS) {
           await removeItem(item, "held-ai-unavailable", "unavailable");
@@ -140,16 +142,23 @@ async function drainQueue() {
           chrome.alarms.create("retryAi", { delayInMinutes: 1 });
           continue;
         }
+        approvedConfig = aiConfig(checkedSettings);
+        approvedTitle = item.title || "";
       }
 
       // A successful AI decision is not cached for later Wayback retries.
-      await mutateState(({ queue }) => {
+      let maySend = false;
+      await mutateState(({ queue, settings }) => {
         const pending = queue.find((q) => sameItem(q, item));
-        if (!pending) return;
+        if (!pending || !settings.enabled || !allowedUrl(item.url, settings)) return;
+        if (settings.aiCheckEnabled && (approvedConfig !== aiConfig(settings)
+            || approvedTitle !== (pending.title || ""))) return;
+        maySend = true;
         delete pending.aiTries;
         delete pending.aiRetryAt;
         return { queue };
       });
+      if (!maySend) continue;
       lastSentAt = Date.now();
       try {
         const { status } = await saveOne(item.url);
@@ -157,7 +166,7 @@ async function drainQueue() {
           await mutateState(({ queue }) => {
             const pending = queue.find((q) => sameItem(q, item));
             if (pending) pending.tries++;
-            return { queue };
+            return { queue, backoffUntil: Date.now() + 5 * 60_000 };
           });
           chrome.alarms.create("retryQueue", { delayInMinutes: 5 });
           break;
