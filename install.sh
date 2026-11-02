@@ -39,11 +39,11 @@ else
 fi
 
 echo ""
-echo "フォルダ: $DEST"
+echo "フォルダ: $DEST/extension"
 
 if [ "$(uname)" = "Darwin" ]; then
   if command -v pbcopy >/dev/null 2>&1; then
-    printf '%s' "$DEST" | pbcopy
+    printf '%s' "$DEST/extension" | pbcopy
     echo "パスをクリップボードにコピーしました。"
   fi
   if [ -d "/Applications/Google Chrome.app" ]; then

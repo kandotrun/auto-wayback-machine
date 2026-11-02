@@ -1,5 +1,7 @@
+import { updateSettings, getState, requestProcessing } from "./shared/storage.js";
+
 async function render() {
-  const s = await chrome.storage.local.get(["settings", "queue", "log", "stats"]);
+  const s = await getState();
   const settings = s.settings || {};
   document.getElementById("enabled").checked = settings.enabled !== false;
   document.getElementById("submitted").textContent = s.stats?.submitted ?? 0;
@@ -23,10 +25,8 @@ async function render() {
 }
 
 document.getElementById("enabled").addEventListener("change", async (e) => {
-  const s = await chrome.storage.local.get(["settings"]);
-  const settings = { ...(s.settings || {}), enabled: e.target.checked };
-  await chrome.storage.local.set({ settings });
-  chrome.runtime.sendMessage({ type: "processQueue" });
+  await updateSettings({ enabled: e.target.checked });
+  requestProcessing();
   render();
 });
 

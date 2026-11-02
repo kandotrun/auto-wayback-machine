@@ -1,9 +1,10 @@
+import { getSettings, updateSettings, setState, requestProcessing } from "./shared/storage.js";
+
 const $ = (id) => document.getElementById(id);
 const lines = (v) => v.split("\n").map((s) => s.trim()).filter(Boolean);
 
 async function load() {
-  const s = await chrome.storage.local.get(["settings"]);
-  const st = s.settings || {};
+  const st = await getSettings();
   $("dedupeHours").value = st.dedupeHours ?? 24;
   $("minIntervalSec").value = st.minIntervalSec ?? 8;
   $("stripTracking").checked = st.stripTracking !== false;
@@ -13,9 +14,7 @@ async function load() {
 }
 
 $("save").addEventListener("click", async () => {
-  const s = await chrome.storage.local.get(["settings"]);
   const settings = {
-    ...(s.settings || {}),
     dedupeHours: Math.max(0, Number($("dedupeHours").value) || 0),
     minIntervalSec: Math.min(120, Math.max(4, Number($("minIntervalSec").value) || 8)),
     stripTracking: $("stripTracking").checked,
@@ -23,14 +22,14 @@ $("save").addEventListener("click", async () => {
     excludeHosts: lines($("excludeHosts").value),
     excludePatterns: lines($("excludePatterns").value),
   };
-  await chrome.storage.local.set({ settings });
-  chrome.runtime.sendMessage({ type: "processQueue" });
+  await updateSettings(settings);
+  requestProcessing();
   $("saved").textContent = "保存しました";
   setTimeout(() => ($("saved").textContent = ""), 2000);
 });
 
 $("clear").addEventListener("click", async () => {
-  await chrome.storage.local.set({
+  await setState({
     savedMap: {}, log: [], queue: [],
     stats: { submitted: 0, skipped: 0, failed: 0 },
   });

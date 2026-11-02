@@ -1,15 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head><meta charset="utf-8"><title>Wayback Auto Archiver 設定</title>
-<style>
-  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; font-size: 14px; line-height: 1.7; }
-  textarea { width: 100%; box-sizing: border-box; font-family: monospace; }
-  input[type="number"] { width: 80px; }
-  label { display: block; margin-top: 14px; font-weight: 600; }
-  .hint { color: #666; font-weight: 400; font-size: 12.5px; }
-  button { margin-top: 18px; padding: 8px 20px; cursor: pointer; }
-  #saved { color: #2b6cb0; margin-left: 10px; }
-</style></head>
+<link rel="stylesheet" href="shared/base.css"><link rel="stylesheet" href="options.css"></head>
 <body>
   <h1>Wayback Auto Archiver 設定</h1>
 
@@ -35,9 +27,9 @@
 
   <div>
     <button id="save">保存</button><span id="saved"></span>
-    <button id="clear" style="margin-left:16px">履歴と重複記録をクリア</button>
+    <button id="clear">履歴と重複記録をクリア</button>
   </div>
 
-  <script src="options.js"></script>
+  <script type="module" src="options.js"></script>
 </body>
 </html>
