@@ -6,7 +6,8 @@
 # What it does:
 #   1. Clones (or updates) the extension into ~/auto-wayback-machine
 #   2. Generates the PNG icons locally (they are not kept in git)
-#   3. Copies the folder path to the clipboard and opens chrome://extensions
+#   3. Sets up Ollama and the judge model (optional; failures only warn)
+#   4. Copies the folder path to the clipboard and opens chrome://extensions
 #
 # The last clicks cannot be automated: since Chrome 137, Google Chrome
 # ignores the --load-extension command-line flag, so an unpacked extension
@@ -17,6 +18,7 @@ set -euo pipefail
 
 REPO_URL="https://github.com/kandotrun/auto-wayback-machine.git"
 DEST="${AUTO_WAYBACK_DIR:-$HOME/auto-wayback-machine}"
+JUDGE_MODEL="${AWM_JUDGE_MODEL:-qwen3.8:27b-mlx}"
 
 if ! command -v git >/dev/null 2>&1; then
   echo "git が見つかりません。Xcode Command Line Tools を入れてください: xcode-select --install" >&2
@@ -38,16 +40,25 @@ else
   echo "python3 が無いのでアイコンを生成できませんでした（拡張の読み込み時にアイコンエラーになります）" >&2
 fi
 
+if [ "${AWM_SKIP_OLLAMA:-0}" = "1" ]; then
+  echo "Ollama のセットアップをスキップします（AWM_SKIP_OLLAMA=1）。"
+elif ! AWM_JUDGE_MODEL="$JUDGE_MODEL" bash "$DEST/scripts/setup_ollama.sh"; then
+  echo "警告: Ollama の準備を完了できませんでした。拡張本体のインストールは完了しています。" >&2
+  echo "AI は auto なら未接続時にスキップします。必要なら後で同じコマンドを再実行してください。" >&2
+fi
+
 echo ""
-echo "フォルダ: $DEST"
+echo "フォルダ: $DEST/extension"
 
 if [ "$(uname)" = "Darwin" ]; then
   if command -v pbcopy >/dev/null 2>&1; then
-    printf '%s' "$DEST" | pbcopy
+    printf '%s' "$DEST/extension" | pbcopy
     echo "パスをクリップボードにコピーしました。"
   fi
   if [ -d "/Applications/Google Chrome.app" ]; then
-    open -a "Google Chrome" "chrome://extensions/"
+    if ! open -a "Google Chrome" "chrome://extensions/"; then
+      echo "Chrome で chrome://extensions/ を開いてください。" >&2
+    fi
   else
     echo "Google Chrome が /Applications に見つかりませんでした。Chrome で chrome://extensions/ を開いてください。"
   fi

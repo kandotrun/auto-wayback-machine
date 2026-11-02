@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><title>Wayback Auto Archiver 設定</title>
+<link rel="stylesheet" href="shared/base.css"><link rel="stylesheet" href="options.css"></head>
+<body>
+  <h1>Wayback Auto Archiver 設定</h1>
+
+  <label>同じURLを再保存しない期間（時間）
+    <div><input type="number" id="dedupeHours" min="0" max="720"> <span class="hint">0 = 毎回保存（Waybackの負荷が上がるので非推奨）</span></div>
+  </label>
+
+  <label>保存リクエストの最小間隔（秒）
+    <div><input type="number" id="minIntervalSec" min="4" max="120"> <span class="hint">Waybackの上限は約15件/分。8秒 = 最大7.5件/分</span></div>
+  </label>
+
+  <label><span><input type="checkbox" id="stripTracking"> トラッキングパラメータ（utm_* / fbclid等）を除去して保存</span></label>
+  <label><span><input type="checkbox" id="skipSensitiveQuery"> token / session / password等を含むURLは保存しない</span></label>
+
+  <label>除外ホスト（1行に1つ）
+    <div class="hint">例: example.com と書くとサブドメイン含め除外。*.example.com も可。銀行・Webメール等、URL自体を外に出したくない先をここへ。</div>
+    <textarea id="excludeHosts" rows="8"></textarea>
+  </label>
+
+  <label>除外パターン（URLに含まれたら除外、1行に1つ）
+    <textarea id="excludePatterns" rows="4"></textarea>
+  </label>
+
+  <fieldset>
+    <legend>リンク先の自動保存（オプトイン）</legend>
+    <label><input type="checkbox" id="captureOutlinks"> 開いたページのリンク先も保存する</label>
+    <label><input type="checkbox" id="outlinksSameDomainOnly"> リンク元と同一ホスト・そのサブドメインだけ</label>
+    <label>1 ページあたりの最大件数
+      <input type="number" id="outlinksMaxPerPage" min="0" max="500">
+    </label>
+    <p class="hint">ユーザーが開いたページから 1 段だけ収集します。保存しただけのリンク先からは収集しません。除外ルールと重複排除は通常の保存と同じです。</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>送信前の AI チェック</legend>
+    <label>AI チェックのモード
+      <select id="aiCheckMode">
+        <option value="off">off：チェックしない</option>
+        <option value="auto">auto：接続できるときだけ使う（既定）</option>
+        <option value="on">on：判定できなければ送信しない</option>
+      </select>
+    </label>
+    <label>Ollama エンドポイント
+      <input type="url" id="aiCheckEndpoint" placeholder="http://127.0.0.1:11434">
+    </label>
+    <label>モデル名
+      <input type="text" id="aiCheckModel">
+    </label>
+    <p class="hint">渡す情報は URL とページタイトルだけです。手動保存にも適用します。クラウドを指定すると URL とタイトルが外部へ送られます。auto は接続できない場合に通常送信します。接続後の判定不能と on の判定不能は最大 3 回試し、その後は自動再送しない保留にします。保存時に接続先へのアクセス権限を要求します。</p>
+  </fieldset>
+
+  <div>
+    <button id="save">保存</button><span id="saved"></span>
+    <button id="clear">履歴と重複記録をクリア</button>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

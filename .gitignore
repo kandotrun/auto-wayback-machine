@@ -1,3 +1,4 @@
-icons/
+extension/icons/
 *.zip
 .DS_Store
+__pycache__/

@@ -51,7 +51,7 @@ def make_png(size: int) -> bytes:
 
 
 def main():
-    out_dir = Path(__file__).resolve().parent.parent / "icons"
+    out_dir = Path(__file__).resolve().parent.parent / "extension" / "icons"
     out_dir.mkdir(exist_ok=True)
     for size in (16, 32, 48, 128):
         (out_dir / f"icon{size}.png").write_bytes(make_png(size))
