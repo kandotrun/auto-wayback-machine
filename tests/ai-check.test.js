@@ -124,3 +124,52 @@ test("truncated, malformed, ambiguous or invalid extracted verdicts still fail c
       { status: "unavailable", category: "invalid_response" });
   }
 });
+
+test("AI mode defaults to auto, honors explicit modes and migrates the legacy boolean", async () => {
+  const { aiMode } = await import("../extension/shared/ai-check.js");
+  assert.equal(aiMode({}), "auto");
+  for (const mode of ["off", "auto", "on"]) assert.equal(aiMode({ aiCheckMode: mode }), mode);
+  assert.equal(aiMode({ aiCheckEnabled: true }), "on");
+  assert.equal(aiMode({ aiCheckEnabled: false }), "off");
+  assert.equal(aiMode({ aiCheckMode: "auto", aiCheckEnabled: false }), "auto");
+});
+test("auto availability probe caches positive/negative results, coalesces and isolates endpoints", async () => {
+  const { createAiAvailabilityProbe, AI_PROBE_TTL_MS } = await import("../extension/shared/ai-check.js");
+  let now = 100;
+  let calls = 0;
+  let up = true;
+  const probe = createAiAvailabilityProbe(async (url, request) => {
+    calls++;
+    assert.ok(url.endsWith("/api/tags"));
+    assert.equal(request.method, "GET");
+    assert.equal(request.body, undefined);
+    if (!up) throw new Error("offline");
+    return { ok: false, status: 403 }; // Responding servers still require judgment.
+  }, () => now);
+  assert.deepEqual(await Promise.all([probe(settings), probe(settings)]), [true, true]);
+  assert.equal(calls, 1);
+  up = false;
+  assert.equal(await probe(settings), true);
+  now += AI_PROBE_TTL_MS;
+  assert.equal(await probe(settings), false);
+  assert.equal(await probe(settings), false);
+  assert.equal(calls, 2);
+  assert.equal(await probe({ ...settings, aiCheckEndpoint: "http://localhost:11434" }), false);
+  assert.equal(calls, 3);
+  now += AI_PROBE_TTL_MS;
+  up = true;
+  assert.equal(await probe(settings), true);
+  assert.equal(calls, 4);
+});
+test("auto availability timeout returns unavailable within its bounded probe", async (t) => {
+  const { createAiAvailabilityProbe, AI_PROBE_TIMEOUT_MS } = await import("../extension/shared/ai-check.js");
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const probe = createAiAvailabilityProbe(async (_url, request) => {
+    await new Promise((_resolve, reject) => {
+      request.signal.addEventListener("abort", () => reject(new Error("timeout")));
+    });
+  });
+  const pending = probe(settings);
+  t.mock.timers.tick(AI_PROBE_TIMEOUT_MS);
+  assert.equal(await pending, false);
+});

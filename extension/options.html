@@ -36,15 +36,21 @@
   </fieldset>
 
   <fieldset>
-    <legend>送信前の AI チェック（オプトイン）</legend>
-    <label><input type="checkbox" id="aiCheckEnabled"> AI が安全と判定した URL だけ送信する</label>
+    <legend>送信前の AI チェック</legend>
+    <label>AI チェックのモード
+      <select id="aiCheckMode">
+        <option value="off">off：チェックしない</option>
+        <option value="auto">auto：接続できるときだけ使う（既定）</option>
+        <option value="on">on：判定できなければ送信しない</option>
+      </select>
+    </label>
     <label>Ollama エンドポイント
       <input type="url" id="aiCheckEndpoint" placeholder="http://127.0.0.1:11434">
     </label>
     <label>モデル名
       <input type="text" id="aiCheckModel">
     </label>
-    <p class="hint">渡す情報は URL とページタイトルだけです。手動保存にも適用します。クラウドを指定すると URL とタイトルが外部へ送られます。判定不能は最大 3 回試し、その後は自動再送しない保留にします。保存時に接続先へのアクセス権限を要求します。</p>
+    <p class="hint">渡す情報は URL とページタイトルだけです。手動保存にも適用します。クラウドを指定すると URL とタイトルが外部へ送られます。auto は接続できない場合に通常送信します。接続後の判定不能と on の判定不能は最大 3 回試し、その後は自動再送しない保留にします。保存時に接続先へのアクセス権限を要求します。</p>
   </fieldset>
 
   <div>

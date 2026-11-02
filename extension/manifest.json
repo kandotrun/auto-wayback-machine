@@ -14,7 +14,8 @@
   },
   "description": "アクセスしたページを自動で Wayback Machine (Save Page Now) に保存します。",
   "host_permissions": [
-    "https://web.archive.org/*"
+    "https://web.archive.org/*",
+    "http://127.0.0.1/*"
   ],
   "icons": {
     "128": "icons/icon128.png",

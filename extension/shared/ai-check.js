@@ -128,3 +128,59 @@ export async function checkWithAi(item, settings, fetcher = globalThis.fetch) {
     clearTimeout(timer);
   }
 }
+
+export function aiMode(settings) {
+  if (["off", "auto", "on"].includes(settings.aiCheckMode)) return settings.aiCheckMode;
+  // Preserve an explicit setting from the earlier unreleased boolean UI.
+  if (typeof settings.aiCheckEnabled === "boolean") return settings.aiCheckEnabled ? "on" : "off";
+  return "auto";
+}
+
+export const AI_PROBE_TIMEOUT_MS = 1500;
+export const AI_PROBE_TTL_MS = 30_000;
+
+// Cache only reachability, never a URL verdict or page data. Single-flight per endpoint.
+export function createAiAvailabilityProbe(fetcher = (...args) => globalThis.fetch(...args), now = Date.now) {
+  const cache = new Map();
+  return async (settings) => {
+    let endpoint;
+    try {
+      endpoint = aiEndpoint(settings.aiCheckEndpoint);
+      endpoint.pathname = endpoint.pathname.replace(/\/api\/chat$/, "/api/tags");
+    } catch {
+      return false;
+    }
+    const key = endpoint.href;
+    const previous = cache.get(key);
+    if (previous?.pending) return previous.pending;
+    if (previous && previous.expires > now()) return previous.available;
+    const entry = {};
+    entry.pending = (async () => {
+      let timer;
+      let available = false;
+      try {
+        const controller = new AbortController();
+        timer = setTimeout(() => controller.abort(), AI_PROBE_TIMEOUT_MS);
+        const response = await fetcher(key, {
+          method: "GET", credentials: "omit", redirect: "error", signal: controller.signal,
+        });
+        // Even an HTTP error means a server responded. Judgment failures remain closed.
+        available = Boolean(response);
+        try { await response.body?.cancel(); } catch {}
+      } catch {
+        available = false;
+      } finally {
+        clearTimeout(timer);
+      }
+      entry.available = available;
+      entry.expires = now() + AI_PROBE_TTL_MS;
+      return available;
+    })();
+    cache.set(key, entry);
+    // A user can change endpoints repeatedly; do not let the cache grow forever.
+    if (cache.size > 16) cache.delete(cache.keys().next().value);
+    try { return await entry.pending; } finally { delete entry.pending; }
+  };
+}
+
+export const aiAvailable = createAiAvailabilityProbe();

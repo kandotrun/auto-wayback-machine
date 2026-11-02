@@ -4,16 +4,17 @@ import { DEFAULT_SETTINGS } from "../extension/shared/settings.js";
 
 test("AI gate applies to manual and automatic sends, fails closed without blocking other URLs", async (t) => {
   let now = 200_000_000;
-  let state = { settings: { ...DEFAULT_SETTINGS, aiCheckEnabled: true } };
+  let state = { settings: { ...DEFAULT_SETTINGS, aiCheckMode: "on" } };
   const listeners = {};
   const requests = [];
   const alarms = [];
   let archiveStatus = 200;
+  let online = true;
   let aiHandler = async () => ({ done: true, message: { content: '{"status":"safe","category":"none"}' } });
   const event = (name) => ({ addListener(fn) { listeners[name] = fn; } });
   t.mock.method(Date, "now", () => now);
   t.mock.method(globalThis, "setTimeout", (fn, ms) => {
-    if (ms !== 20_000 && ms !== 120_000) {
+    if (ms !== 1500 && ms !== 20_000 && ms !== 120_000) {
       now += ms;
       queueMicrotask(fn);
     }
@@ -35,6 +36,10 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   };
   t.mock.method(globalThis, "fetch", async (url, options) => {
     requests.push({ url, options });
+    if (url.includes("/api/tags")) {
+      if (!online) throw new Error("offline");
+      return { ok: true };
+    }
     if (url.includes("/api/chat")) return { ok: true, json: () => aiHandler(JSON.parse(options.body)) };
     return { status: archiveStatus, body: { async cancel() {} } };
   });
@@ -44,7 +49,7 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   const aiRequests = () => requests.filter((r) => r.url.includes("/api/chat"));
   const saves = () => requests.filter((r) => r.url.startsWith("https://web.archive.org/save/"));
   const reset = () => {
-    state = { settings: { ...DEFAULT_SETTINGS, aiCheckEnabled: true } };
+    state = { settings: { ...DEFAULT_SETTINGS, aiCheckMode: "on" } };
     requests.length = 0;
   };
   const message = (msg, sender = {}) => new Promise((resolve) => {
@@ -118,7 +123,7 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   assert.equal(state.log[0].status, "held-ai-unavailable");
 
   reset();
-  state.settings.aiCheckEnabled = false;
+  state.settings.aiCheckMode = "off";
   await enqueue("https://example.com/off", "Title");
   await processQueue();
   assert.equal(aiRequests().length, 0);
@@ -153,8 +158,44 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   assert.equal(saves().length, 0);
 
   reset();
+  state.settings.aiCheckMode = "auto";
+  online = false;
+  await enqueue("https://example.com/auto-offline", "Title");
+  await processQueue();
+  assert.equal(aiRequests().length, 0);
+  assert.equal(saves().length, 1);
+  assert.equal(requests.filter((r) => r.url.includes("/api/tags")).length, 1);
+  await enqueue("https://example.com/auto-offline-two", "Title");
+  await processQueue();
+  assert.equal(saves().length, 2);
+  assert.equal(requests.filter((r) => r.url.includes("/api/tags")).length, 1); // cached
+
+  reset();
+  state.settings.aiCheckMode = "auto";
+  online = true;
+  now += 30_000;
+  aiHandler = async () => ({ done: true, message: { content: '{"status":"unsafe","category":"medical"}' } });
+  await enqueue("https://example.com/auto-online", "Title");
+  await processQueue();
+  assert.equal(aiRequests().length, 1);
+  assert.equal(saves().length, 0);
+  assert.equal(state.log[0].status, "held-ai-unsafe");
+
+  reset();
+  state.settings.aiCheckMode = "auto";
+  aiHandler = async () => { throw new Error("unavailable"); };
+  await enqueue("https://example.com/auto-error", "Title");
+  await processQueue();
+  assert.equal(saves().length, 0);
+  assert.equal(state.queue[0].aiTries, 1);
+  online = false;
+  now += 30_000; // cache expired, still before aiRetryAt
+  await processQueue();
+  assert.equal(saves().length, 1); // auto may bypass deferred checks once server goes away
+
+  reset();
   archiveStatus = 429; // Keep the captured URLs queued for inspection.
-  state.settings.aiCheckEnabled = false;
+  state.settings.aiCheckMode = "off";
   state.settings.captureOutlinks = true;
   const sender = { frameId: 0, tab: { id: 1 }, url: "https://example.com/source" };
   const sourceUrl = sender.url;

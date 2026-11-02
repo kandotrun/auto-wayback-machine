@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { isDuplicate, pruneMap } from "../extension/background/history.js";
 import { DEFAULT_SETTINGS } from "../extension/shared/settings.js";
 
-test("legacy defaults remain unchanged and new features are opt-in", () => {
+test("legacy defaults remain unchanged and outlinks are opt-in and AI defaults to auto", () => {
   assert.deepEqual(DEFAULT_SETTINGS, {
-    enabled: true, aiCheckEnabled: false, aiCheckEndpoint: "http://127.0.0.1:11434",
-    aiCheckModel: "qwen3.8:27b-mlx", captureOutlinks: false, outlinksSameDomainOnly: true, outlinksMaxPerPage: 30,
+    enabled: true, aiCheckMode: "auto", aiCheckEndpoint: "http://127.0.0.1:11434",
+    aiCheckModel: "qwen2.5vl:7b", captureOutlinks: false, outlinksSameDomainOnly: true, outlinksMaxPerPage: 30,
     dedupeHours: 24, minIntervalSec: 8,
     stripTracking: true, skipSensitiveQuery: true,
     excludeHosts: ["localhost", "127.0.0.1", "web.archive.org", "archive.org",

@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
+import { DEFAULT_SETTINGS } from "../extension/shared/settings.js";
 
 function files(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -15,11 +16,18 @@ const javascript = [...extensionFiles, ...files("scripts"), ...files("tests")]
 for (const path of javascript) {
   execFileSync(process.execPath, ["--check", path], { stdio: "inherit" });
 }
-execFileSync("bash", ["-n", "install.sh"], { stdio: "inherit" });
+for (const path of ["install.sh", ...files("scripts").filter((p) => p.endsWith(".sh"))]) {
+  execFileSync("bash", ["-n", path], { stdio: "inherit" });
+}
 
 const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 assert.equal(manifest.version, pkg.version);
+for (const path of ["install.sh", "scripts/setup_ollama.sh"]) {
+  assert.ok(readFileSync(path, "utf8").includes(
+    'JUDGE_MODEL="${AWM_JUDGE_MODEL:-' + DEFAULT_SETTINGS.aiCheckModel + '}"',
+  ), path + ": judge model must match extension defaults");
+}
 assert.equal(manifest.background.type, "module");
 const references = [
   manifest.background.service_worker, manifest.action.default_popup, manifest.options_page,

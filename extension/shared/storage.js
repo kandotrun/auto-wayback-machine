@@ -1,3 +1,4 @@
+import { aiMode } from "./ai-check.js";
 import { DEFAULT_SETTINGS } from "./settings.js";
 
 export async function getState() {
@@ -5,7 +6,7 @@ export async function getState() {
     "settings", "queue", "savedMap", "log", "stats", "backoffUntil",
   ]);
   return {
-    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}) },
+    settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}), aiCheckMode: aiMode(s.settings || {}) },
     queue: s.queue || [],
     backoffUntil: s.backoffUntil || 0,
     savedMap: s.savedMap || {},

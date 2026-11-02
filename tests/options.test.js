@@ -32,21 +32,22 @@ test("settings defaults, AI endpoint permission denial/grant and persisted opt-i
   assert.equal($("captureOutlinks").checked, false);
   assert.equal($("outlinksSameDomainOnly").checked, true);
   assert.equal($("outlinksMaxPerPage").value, 30);
-  assert.equal($("aiCheckEnabled").checked, false);
+  assert.equal($("aiCheckMode").value, "auto");
   assert.equal($("aiCheckEndpoint").value, "http://127.0.0.1:11434");
-  assert.equal($("aiCheckModel").value, "qwen3.8:27b-mlx");
+  assert.equal($("aiCheckModel").value, "qwen2.5vl:7b");
 
-  $("aiCheckEnabled").checked = true;
+  $("aiCheckEndpoint").value = "http://other.example:11434";
+  $("aiCheckMode").value = "on";
   $("captureOutlinks").checked = true;
   $("outlinksMaxPerPage").value = "2";
   await $("save").click();
-  assert.equal(state.settings.aiCheckEnabled, undefined);
+  assert.equal(state.settings.aiCheckMode, undefined);
   assert.match($("saved").textContent, /許可されなかった/);
-  assert.deepEqual(origins[0], { origins: ["http://127.0.0.1:11434/*"] });
+  assert.deepEqual(origins[0], { origins: ["http://other.example:11434/*"] });
 
   granted = true;
   await $("save").click();
-  assert.equal(state.settings.aiCheckEnabled, true);
+  assert.equal(state.settings.aiCheckMode, "on");
   assert.equal(state.settings.captureOutlinks, true);
   assert.equal(state.settings.outlinksMaxPerPage, 2);
   assert.equal(state.settings.enabled, false);
@@ -59,8 +60,8 @@ test("settings defaults, AI endpoint permission denial/grant and persisted opt-i
   assert.equal(origins.length, 2); // Invalid endpoint never requests permission.
   assert.match($("saved").textContent, /確認してください/);
 
-  $("aiCheckEnabled").checked = false;
+  $("aiCheckMode").value = "off";
   await $("save").click();
-  assert.equal(state.settings.aiCheckEnabled, false);
+  assert.equal(state.settings.aiCheckMode, "off");
   assert.equal(origins.length, 2);
 });

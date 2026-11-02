@@ -1,4 +1,4 @@
-import { aiEndpoint } from "./shared/ai-check.js";
+import { aiEndpoint, aiMode } from "./shared/ai-check.js";
 import { DEFAULT_SETTINGS } from "./shared/settings.js";
 import { outlinksLimit } from "./shared/outlinks.js";
 import { getSettings, updateSettings, setState, requestProcessing } from "./shared/storage.js";
@@ -8,7 +8,7 @@ const lines = (v) => v.split("\n").map((s) => s.trim()).filter(Boolean);
 
 async function load() {
   const st = await getSettings();
-  $("aiCheckEnabled").checked = st.aiCheckEnabled === true;
+  $("aiCheckMode").value = aiMode(st);
   $("aiCheckEndpoint").value = st.aiCheckEndpoint ?? DEFAULT_SETTINGS.aiCheckEndpoint;
   $("aiCheckModel").value = st.aiCheckModel ?? DEFAULT_SETTINGS.aiCheckModel;
   $("captureOutlinks").checked = st.captureOutlinks === true;
@@ -23,10 +23,10 @@ async function load() {
 }
 
 $("save").addEventListener("click", async () => {
-  const aiCheckEnabled = $("aiCheckEnabled").checked;
+  const aiCheckMode = $("aiCheckMode").value;
   const aiCheckEndpoint = $("aiCheckEndpoint").value.trim();
   const aiCheckModel = $("aiCheckModel").value.trim();
-  if (aiCheckEnabled) {
+  if (aiCheckMode !== "off") {
     try {
       const endpoint = aiEndpoint(aiCheckEndpoint);
       if (!aiCheckModel) throw new Error("model");
@@ -42,7 +42,7 @@ $("save").addEventListener("click", async () => {
     }
   }
   const settings = {
-    aiCheckEnabled, aiCheckEndpoint, aiCheckModel,
+    aiCheckMode, aiCheckEndpoint, aiCheckModel,
     captureOutlinks: $("captureOutlinks").checked,
     outlinksSameDomainOnly: $("outlinksSameDomainOnly").checked,
     outlinksMaxPerPage: outlinksLimit($("outlinksMaxPerPage").value),

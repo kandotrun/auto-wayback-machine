@@ -56,6 +56,7 @@ test("worker registers listeners, resumes storage, backs off and preserves manua
   await listeners.installed();
   await settle();
   assert.equal(state.settings.dedupeHours, 24);
+  state.settings.aiCheckMode = "off";
   assert.deepEqual(alarms[0], ["retryQueue", { periodInMinutes: 1 }]);
 
   state.queue = [

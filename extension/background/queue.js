@@ -1,7 +1,7 @@
 import { getState, mutateState } from "../shared/storage.js";
 import { normalise, shouldSkip } from "../shared/url.js";
 import { selectOutlinks } from "../shared/outlinks.js";
-import { aiDisposition, checkWithAi, AI_RETRY_MS, AI_MAX_ATTEMPTS } from "../shared/ai-check.js";
+import { aiDisposition, checkWithAi, AI_RETRY_MS, AI_MAX_ATTEMPTS, aiMode, aiAvailable } from "../shared/ai-check.js";
 import { isDuplicate, pruneMap } from "./history.js";
 import { saveOne } from "./wayback.js";
 
@@ -14,7 +14,7 @@ function allowedUrl(raw, settings) {
 }
 const sameItem = (a, b) => a.url === b.url && a.queuedAt === b.queuedAt;
 const aiConfig = (settings) => JSON.stringify([
-  settings.aiCheckEnabled, settings.aiCheckEndpoint, settings.aiCheckModel,
+  aiMode(settings), settings.aiCheckEndpoint, settings.aiCheckModel,
 ]);
 
 export async function enqueue(rawUrl, title = "", manual = false) {
@@ -88,13 +88,15 @@ export function processQueue() {
 }
 
 async function drainQueue() {
+  const deferred = new Set();
   try {
     while (true) {
       const state = await getState();
       const { settings } = state;
       if (!settings.enabled || state.backoffUntil > Date.now()) break;
       // Deferred AI failures do not block the remaining queue.
-      let item = state.queue.find((q) => !q.aiRetryAt || q.aiRetryAt <= Date.now());
+      let item = state.queue.find((q) => !deferred.has(q.url)
+        && (aiMode(settings) !== "on" || !q.aiRetryAt || q.aiRetryAt <= Date.now()));
       if (!item) break;
 
       const wait = lastSentAt + settings.minIntervalSec * 1000 - Date.now();
@@ -110,7 +112,25 @@ async function drainQueue() {
 
       let approvedConfig = null;
       let approvedTitle = null;
-      if (fresh.settings.aiCheckEnabled) {
+      const mode = aiMode(fresh.settings);
+      const useAi = mode === "on" || (mode === "auto" && await aiAvailable(fresh.settings));
+      // Probe results can become stale if settings change while awaiting the endpoint.
+      const plannedConfig = aiConfig(fresh.settings);
+      const afterProbe = await getState();
+      if (plannedConfig !== aiConfig(afterProbe.settings)) continue;
+      if (!afterProbe.settings.enabled) break;
+      fresh = afterProbe;
+      item = fresh.queue.find((q) => sameItem(q, item));
+      if (!item) continue;
+      if (!allowedUrl(item.url, fresh.settings)) {
+        await removeItem(item, "skipped-rule", "rule");
+        continue;
+      }
+      if (useAi && item.aiRetryAt > Date.now()) {
+        deferred.add(item.url);
+        continue;
+      }
+      if (useAi) {
         if ((item.aiTries || 0) >= AI_MAX_ATTEMPTS) {
           await removeItem(item, "held-ai-unavailable", "unavailable");
           continue;
@@ -162,7 +182,8 @@ async function drainQueue() {
       await mutateState(({ queue, settings }) => {
         const pending = queue.find((q) => sameItem(q, item));
         if (!pending || !settings.enabled || !allowedUrl(item.url, settings)) return;
-        if (settings.aiCheckEnabled && (approvedConfig !== aiConfig(settings)
+        if (plannedConfig !== aiConfig(settings)) return;
+        if (useAi && (approvedConfig !== aiConfig(settings)
             || approvedTitle !== (pending.title || ""))) return;
         maySend = true;
         delete pending.aiTries;
