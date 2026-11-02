@@ -1,59 +1,101 @@
 # Wayback Auto Archiver
 
-PCのChromeでアクセスしたページを、自動で全部 Wayback Machine に保存する Chrome 拡張（Manifest V3）です。
+## 概要
 
-## 仕組み
+PC の Chrome でアクセスしたページの URL を、Wayback Machine に自動送信する個人用 Chrome 拡張（Manifest V3）です。安全のための除外ルールがあり、すべてのページが保存されるわけではありません。Chrome で開いたページだけが対象です。
 
-- ページ表示完了（SPA の画面遷移含む）を検知して URL をキューに入れる
-- キューを **8秒に1件** のペースで `https://web.archive.org/save/<URL>` へ送る
-  （Wayback の上限は約15件/分。その半分以下に抑えています。429 が返ったら5分バックオフ）
-- 同じ URL は **24時間は再保存しない**（設定で変更可）
-- キューと履歴は `chrome.storage.local` に保存されるので、ブラウザ再起動後も続きから処理します
+## CLI での入れ方
 
-## インストール（Mac・CLIから）
+Mac で Git と Python 3 が必要です。Git がなければ `xcode-select --install` を実行してください。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kandotrun/auto-wayback-machine/main/install.sh | bash
 ```
 
-これで `~/auto-wayback-machine` へ取得（2回目以降は更新）、アイコン生成、パスのクリップボードコピー、Chromeの拡張機能ページを開くところまで自動でやります。
+リポジトリを `~/auto-wayback-machine` に取得し、PNG アイコンを生成して、読み込むフォルダのパスをクリップボードへコピーし、Chrome の拡張機能ページを開きます。初回は次の操作をしてください。
 
-最後の読み込みだけは自動化できません。Chrome 137以降、通常版Chromeでは `--load-extension` フラグが無効化され、未パッケージ拡張は拡張機能ページからしか読み込めないためです。初回だけ:
+1. `chrome://extensions/` で「デベロッパーモード」を ON にする。
+2. 「パッケージ化されていない拡張機能を読み込む」を押す。
+3. コピーしたパスを貼り付け、**`~/auto-wayback-machine/extension`** を選ぶ。
 
-1. 右上の「デベロッパーモード」を ON
-2. 「パッケージ化されていない拡張機能を読み込む」
-3. パスを貼り付け（Cmd+V）して `~/auto-wayback-machine` を選択
+更新時は同じコマンドを再実行し、拡張機能ページで ↻ を押してください。`AUTO_WAYBACK_DIR` で取得先を指定できます。
 
-更新時は同じコマンドを再実行 → 拡張機能ページで ↻ を押すだけです。
+手動で取得した場合は、リポジトリのルートで次を実行し、`extension/` を読み込みます。Node.js やビルドはインストールに不要です。
 
-手動で入れる場合は、このフォルダで `python3 scripts/generate_icons.py` を実行してアイコンを生成してから、同じ手順でフォルダを選んでください。
+```bash
+python3 scripts/generate_icons.py
+```
 
-Mac の常用は Safari ですが、この拡張は Chrome 専用です。Chrome で開いたページだけが対象です。
+旧版でリポジトリのルートを読み込んでいる場合は、更新後の読み込み先が `extension/` に変わります。切り替え前に旧版の設定・履歴を確認してください。Chrome が別の拡張として扱う場合、既存のローカルデータは自動移行されません。
 
-## 安全側の初期設定（大事）
+## 仕組み
 
-「全部」と言っても、以下は初期状態で送りません。設定画面で変更できます。
+- メインフレームの表示完了と SPA の履歴変更を検知し、URL のフラグメントと追跡用クエリを除去して除外判定する。
+- 同じ URL の保存済み記録（初期値 24 時間）とキュー内の重複を確認して、キューに追加する。
+- 初期値 8 秒間隔で `https://web.archive.org/save/<URL>` に GET を送る。ログイン用 Cookie は送らない。
+- 429 / 503 では項目を残し、5 分後の再試行アラームを設定する。それ以外の送信失敗は 3 回で失敗として記録する。
+- 設定・キュー・重複記録・履歴・統計は `chrome.storage.local` に保存する。起動時やアラームでキュー処理を再開する。
+- 履歴は最大 200 件、重複記録は直近 30 日以内の最大 5,000 件を保持する。
 
-- ローカル / プライベートIP（localhost, 192.168.*, 10.* など）
-- URL に認証情報が埋め込まれたもの
-- クエリに `token` `session` `password` `code` `auth` などが含まれる URL
-  （OAuthコールバックやワンタイムリンクの URL 自体が外に出るのを防ぐため）
-- 除外ホストの初期値: `web.archive.org` / `archive.org` / `accounts.google.com` / `mail.google.com` / `localhost` / `127.0.0.1`
+ポップアップで自動保存の ON/OFF、統計、最近の送信履歴を確認できます。「このページを今すぐ保存」は重複期間を無視してキューに追加しますが、安全フィルタは適用します。自動保存が OFF の間はキュー処理も停止します。
 
-ネットバンキングなど「URL自体を知られたくない」サイトは、設定画面の除外ホストに追加してください（サブドメイン込みで効きます）。
+## 設定
 
-## 限界（仕様です）
+ポップアップの「設定（除外リストなど）」から変更します。
 
-- Wayback のクローラは **あなたのログイン状態を持ちません**。ログインが必要なページは、あなたが見ている画面ではなく公開側／ログイン画面が保存されます。「見た画面そのもの」の記録にはなりません。
-- JavaScript で描画するページ（SPA）は保存が不完全になることがあります。
-- Wayback 側で robots.txt 等により保存を拒否されるサイトがあります。
-- 一度 Wayback に保存されたものは、原則として取り消せません。
+| 設定 | 初期値・意味 |
+| --- | --- |
+| 自動保存 | ON |
+| 同じ URL を再保存しない期間 | 24 時間（0 で保存済み記録による重複排除を無効化） |
+| 保存リクエストの最小間隔 | 8 秒（保存可能範囲 4〜120 秒） |
+| トラッキングパラメータの除去 | ON。`utm_*`、`fbclid`、`gclid` などを除去 |
+| センシティブなクエリの除外 | ON。`token`、`session`、`password`、`code` などのキーを除外 |
+| 除外ホスト | `localhost`、`127.0.0.1`、`web.archive.org`、`archive.org`、`accounts.google.com`、`mail.google.com` |
+| 除外パターン | 空。URL に含まれる文字列を大文字・小文字を区別して照合 |
+
+除外ホストはサブドメインにも適用します。`example.com` と `*.example.com` はどちらも本体とサブドメインを除外します。「履歴と重複記録をクリア」はキューと統計もクリアします。
+
+## プライバシーと安全上の注意
+
+URL は外部サービスの Internet Archive に送られ、保存結果が公開される可能性があります。一度保存されたものは原則として取り消せません。銀行や Web メールなど、URL 自体を知られたくないサイトは除外ホストに追加してください。
+
+ローカル／プライベートホスト（localhost、`.local`、127.*、10.*、192.168.*、172.16〜31.*）と IPv6 ホスト、認証情報入り URL は設定にかかわらず送りません。センシティブなクエリの除外は既知のキーに対する判定であり、すべての秘密情報を検出できるものではありません。URL のパスや独自のクエリに秘密が入るサイトは、ホストやパターンで除外してください。手動保存にも同じ安全判定を適用します。
+
+## 制限
+
+- Chrome 137 以降の通常版 Google Chrome では `--load-extension` が使えないため、拡張機能ページで手動読み込みが必要です。
+- Wayback のクローラはあなたのログイン状態を持ちません。ログインが必要なページは、公開側やログイン画面が保存されるため、見た画面そのものの記録にはなりません。
+- JavaScript で描画するページは保存が不完全になることがあります。サイトや Wayback 側の制限で保存できない場合もあります。
+- 「送信済み」は保存リクエストが成功応答を返した件数です。完成したアーカイブの内容までは検証しません。
+- MV3 のサービスワーカーは Chrome に停止されるため、送信間隔や再試行時刻は厳密な実行保証ではありません。
+
+## 開発とテスト
+
+Node.js 22 以降と Python 3 を使います。依存パッケージの追加や `npm install`、ビルドは不要です。
+
+```bash
+python3 scripts/generate_icons.py
+npm run check
+npm test
+python3 scripts/check_icons.py
+```
+
+`check` は JavaScript の `node --check`、シェル構文、バージョンの整合、manifest・HTML・ES module の参照先を確認します。アイコン生成を先に実行してください。`test` は Node 標準テストランナーで URL・除外・重複・履歴・サービスワーカーの挙動を検証します。GitHub Actions でも push / pull request 時に実行します。
+
+Chrome での確認手順と、今回の整理で維持する仕様は [検証メモ](docs/verification.md) を参照してください。生成 PNG は Git に追加しません。
 
 ## ファイル構成
 
-- `manifest.json` — MV3 マニフェスト
-- `background.js` — 検知・キュー・送信（サービスワーカー）
-- `popup.html/js/css` — 状況表示、ON/OFF、今すぐ保存
-- `options.html/js` — 除外リスト、間隔、重複期間の設定
-- `install.sh` — Mac用インストーラ／アップデータ
-- `scripts/generate_icons.py` — アイコンPNGの生成（標準ライブラリのみ、gitにPNGを入れないため生成式）
+| 場所 | 役割 |
+| --- | --- |
+| `extension/manifest.json` | Chrome に読み込ませる拡張の定義 |
+| `extension/background.js` | MV3 ES module の入口・イベント登録・手動保存 |
+| `extension/background/` | キュー、Save Page Now 通信、重複と履歴の純粋ロジック |
+| `extension/shared/` | 初期設定、ストレージ操作、URL 判定、共通 CSS |
+| `extension/popup.*` / `extension/options.*` | 日本語のポップアップ・設定画面 |
+| `extension/icons/` | ローカル生成 PNG（Git 管理外） |
+| `install.sh` | curl で実行する Mac 用インストーラ・更新入口 |
+| `scripts/` | アイコン生成・検証、構文と参照チェック |
+| `tests/` | 依存なしの単体・回帰テスト |
+| `docs/` | 開発時の検証メモ |
+| `.github/workflows/` | CI |
