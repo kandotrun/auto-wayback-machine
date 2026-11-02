@@ -46,6 +46,17 @@ export async function enqueue(rawUrl, title = "", manual = false) {
   return response;
 }
 
+export async function attachPageTitle(rawUrl, title) {
+  await mutateState(({ settings, queue }) => {
+    const url = allowedUrl(rawUrl, settings);
+    if (!url || !title) return;
+    const pending = queue.find((item) => item.url === url.href);
+    if (!pending) return;
+    pending.title = title;
+    return { queue };
+  });
+}
+
 export async function enqueueOutlinks(sourceUrl, links) {
   await mutateState(({ settings, queue, savedMap }) => {
     const urls = selectOutlinks(sourceUrl, links, settings, savedMap, queue);

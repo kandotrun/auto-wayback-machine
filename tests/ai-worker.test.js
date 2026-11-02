@@ -104,6 +104,12 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   assert.ok(alarms.some(([name]) => name === "retryAi"));
 
   reset();
+  assert.deepEqual(await message({ type: "pageReady", sourceUrl: "https://example.com/metadata", title: "Title" },
+    { frameId: 0, tab: { id: 1 }, url: "https://example.com/metadata" }), { collectOutlinks: false });
+  assert.equal(requests.length, 0); // Metadata notification is not a second navigation.
+  assert.equal(state.queue, undefined);
+
+  reset();
   state.queue = [{ url: "https://example.com/interrupted", title: "Title", queuedAt: now,
     tries: 0, aiTries: 3, aiRetryAt: now - 1 }];
   await processQueue();
@@ -152,6 +158,8 @@ test("AI gate applies to manual and automatic sends, fails closed without blocki
   state.settings.captureOutlinks = true;
   const sender = { frameId: 0, tab: { id: 1 }, url: "https://example.com/source" };
   const sourceUrl = sender.url;
+  await enqueue(sourceUrl, "Source");
+  await processQueue();
   assert.deepEqual(await message({ type: "pageReady", sourceUrl, title: "Source" }, sender), { collectOutlinks: true });
   await processQueue();
   await message({ type: "outlinks", sourceUrl, links: [

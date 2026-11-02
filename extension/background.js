@@ -1,6 +1,6 @@
 // Register MV3 listeners synchronously at module evaluation.
 import { getState, setState } from "./shared/storage.js";
-import { enqueue, enqueueOutlinks, processQueue } from "./background/queue.js";
+import { enqueue, attachPageTitle, enqueueOutlinks, processQueue } from "./background/queue.js";
 
 import { canCollectOutlinks } from "./shared/outlinks.js";
 
@@ -45,8 +45,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       if (!source) return sendResponse({ collectOutlinks: false });
       const { settings } = await getState();
       if (msg.type === "pageReady") {
-        // Also provide the visited page title when link capture is off.
-        await enqueue(source, typeof msg.title === "string" ? msg.title : "");
+        // Enrich pending work without creating a second navigation/save event.
+        await attachPageTitle(source, typeof msg.title === "string" ? msg.title : "");
         return sendResponse({ collectOutlinks: canCollectOutlinks(source, settings) });
       }
       await enqueueOutlinks(source, msg.links);
