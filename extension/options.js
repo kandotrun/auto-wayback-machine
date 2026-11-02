@@ -1,3 +1,4 @@
+import { outlinksLimit } from "./shared/outlinks.js";
 import { getSettings, updateSettings, setState, requestProcessing } from "./shared/storage.js";
 
 const $ = (id) => document.getElementById(id);
@@ -5,6 +6,9 @@ const lines = (v) => v.split("\n").map((s) => s.trim()).filter(Boolean);
 
 async function load() {
   const st = await getSettings();
+  $("captureOutlinks").checked = st.captureOutlinks === true;
+  $("outlinksSameDomainOnly").checked = st.outlinksSameDomainOnly !== false;
+  $("outlinksMaxPerPage").value = st.outlinksMaxPerPage ?? 30;
   $("dedupeHours").value = st.dedupeHours ?? 24;
   $("minIntervalSec").value = st.minIntervalSec ?? 8;
   $("stripTracking").checked = st.stripTracking !== false;
@@ -15,6 +19,9 @@ async function load() {
 
 $("save").addEventListener("click", async () => {
   const settings = {
+    captureOutlinks: $("captureOutlinks").checked,
+    outlinksSameDomainOnly: $("outlinksSameDomainOnly").checked,
+    outlinksMaxPerPage: outlinksLimit($("outlinksMaxPerPage").value),
     dedupeHours: Math.max(0, Number($("dedupeHours").value) || 0),
     minIntervalSec: Math.min(120, Math.max(4, Number($("minIntervalSec").value) || 8)),
     stripTracking: $("stripTracking").checked,

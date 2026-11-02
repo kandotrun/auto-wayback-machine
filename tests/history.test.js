@@ -5,7 +5,8 @@ import { DEFAULT_SETTINGS } from "../extension/shared/settings.js";
 
 test("initial settings remain unchanged", () => {
   assert.deepEqual(DEFAULT_SETTINGS, {
-    enabled: true, dedupeHours: 24, minIntervalSec: 8,
+    enabled: true, captureOutlinks: false, outlinksSameDomainOnly: true, outlinksMaxPerPage: 30,
+    dedupeHours: 24, minIntervalSec: 8,
     stripTracking: true, skipSensitiveQuery: true,
     excludeHosts: ["localhost", "127.0.0.1", "web.archive.org", "archive.org",
       "accounts.google.com", "mail.google.com"],

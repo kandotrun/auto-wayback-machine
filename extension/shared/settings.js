@@ -1,5 +1,8 @@
 export const DEFAULT_SETTINGS = {
   enabled: true,
+  captureOutlinks: false,
+  outlinksSameDomainOnly: true,
+  outlinksMaxPerPage: 30,
   dedupeHours: 24,          // same URL is not re-saved within this window
   minIntervalSec: 8,        // Wayback limit is ~15 saves/min; stay well under it
   stripTracking: true,      // remove utm_*, fbclid, gclid... before saving / dedupe

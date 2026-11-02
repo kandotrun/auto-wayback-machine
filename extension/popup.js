@@ -34,7 +34,7 @@ document.getElementById("saveNow").addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const msg = document.getElementById("msg");
   if (!tab?.url) { msg.textContent = "URLを取得できませんでした"; return; }
-  const res = await chrome.runtime.sendMessage({ type: "saveNow", url: tab.url });
+  const res = await chrome.runtime.sendMessage({ type: "saveNow", url: tab.url, title: tab.title || "" });
   msg.textContent = res?.ok ? "キューに入れました" : "スキップしました: " + (res?.reason || "");
   setTimeout(render, 500);
 });

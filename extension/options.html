@@ -25,6 +25,16 @@
     <textarea id="excludePatterns" rows="4"></textarea>
   </label>
 
+  <fieldset>
+    <legend>リンク先の自動保存（オプトイン）</legend>
+    <label><input type="checkbox" id="captureOutlinks"> 開いたページのリンク先も保存する</label>
+    <label><input type="checkbox" id="outlinksSameDomainOnly"> リンク元と同一ホスト・そのサブドメインだけ</label>
+    <label>1 ページあたりの最大件数
+      <input type="number" id="outlinksMaxPerPage" min="0" max="500">
+    </label>
+    <p class="hint">ユーザーが開いたページから 1 段だけ収集します。保存しただけのリンク先からは収集しません。除外ルールと重複排除は通常の保存と同じです。</p>
+  </fieldset>
+
   <div>
     <button id="save">保存</button><span id="saved"></span>
     <button id="clear">履歴と重複記録をクリア</button>

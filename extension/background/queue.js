@@ -1,6 +1,7 @@
 import { getState, setState } from "../shared/storage.js";
 import { normalise, shouldSkip } from "../shared/url.js";
 import { isDuplicate, pruneMap } from "./history.js";
+import { selectOutlinks } from "../shared/outlinks.js";
 import { saveOne } from "./wayback.js";
 
 let processing = false;
@@ -9,12 +10,12 @@ let lastSentAt = 0;
 // ---------- queue ----------
 // Serialise enqueues so rapid navigations cannot race on storage read/write.
 let enqueueChain = Promise.resolve();
-export function enqueue(rawUrl) {
-  enqueueChain = enqueueChain.then(() => enqueueInner(rawUrl)).catch(() => {});
+export function enqueue(rawUrl, title = "") {
+  enqueueChain = enqueueChain.then(() => enqueueInner(rawUrl, title)).catch(() => {});
   return enqueueChain;
 }
 
-async function enqueueInner(rawUrl) {
+async function enqueueInner(rawUrl, title = "") {
   const { settings, queue, savedMap, stats } = await getState();
   if (!settings.enabled) return;
 
@@ -28,9 +29,14 @@ async function enqueueInner(rawUrl) {
     await setState({ stats });
     return;
   }
+  const pending = queue.find((item) => item.url === url);
+  if (pending && title) {
+    pending.title = title;
+    await setState({ queue });
+  }
   if (isDuplicate(url, savedMap, queue, settings.dedupeHours)) return;
 
-  queue.push({ url, queuedAt: Date.now(), tries: 0 });
+  queue.push({ url, title, queuedAt: Date.now(), tries: 0 });
   await setState({ queue });
   processQueue();
 }
@@ -100,3 +106,13 @@ function updateBadge(n) {
   chrome.action.setBadgeBackgroundColor({ color: "#2b6cb0" });
 }
 
+export function enqueueOutlinks(sourceUrl, links) {
+  enqueueChain = enqueueChain.then(async () => {
+    const { settings, queue, savedMap } = await getState();
+    const urls = selectOutlinks(sourceUrl, links, settings, savedMap, queue);
+    queue.push(...urls.map((url) => ({ url, title: "", queuedAt: Date.now(), tries: 0 })));
+    if (urls.length) await setState({ queue });
+    processQueue();
+  }).catch(() => {});
+  return enqueueChain;
+}

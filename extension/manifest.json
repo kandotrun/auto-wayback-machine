@@ -31,5 +31,17 @@
     "webNavigation",
     "alarms"
   ],
-  "version": "1.0.0"
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }

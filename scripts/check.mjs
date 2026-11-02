@@ -23,6 +23,7 @@ assert.equal(manifest.version, pkg.version);
 assert.equal(manifest.background.type, "module");
 const references = [
   manifest.background.service_worker, manifest.action.default_popup, manifest.options_page,
+  ...(manifest.content_scripts || []).flatMap((script) => [...script.js, ...(script.css || [])]),
   ...Object.values(manifest.icons), ...Object.values(manifest.action.default_icon),
 ];
 for (const path of references) assert.ok(existsSync(join("extension", path)), path);
