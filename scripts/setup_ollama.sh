@@ -2,7 +2,7 @@
 # Optional Mac AI runtime setup. install.sh treats any failure here as a warning.
 set -euo pipefail
 
-JUDGE_MODEL="${AWM_JUDGE_MODEL:-qwen2.5vl:7b}"
+JUDGE_MODEL="${AWM_JUDGE_MODEL:-qwen3.8:27b-mlx}"
 OLLAMA_API="http://127.0.0.1:11434"
 export OLLAMA_HOST="127.0.0.1:11434"
 
@@ -73,9 +73,9 @@ if ! ready; then
   fi
 fi
 
-echo "判定モデル $JUDGE_MODEL を用意します。初回は数 GB のダウンロードと保存容量が必要です（既存データは再利用）。"
+echo "判定モデル $JUDGE_MODEL を用意します。初回は大容量のダウンロードと保存容量が必要です（既定モデルは実測で約 18.2 GB、既存データは再利用）。"
 "$OLLAMA_BIN" pull "$JUDGE_MODEL"
 echo "Ollama と判定モデルの準備ができました。拡張の AI モードは auto が既定です。"
-if [ "$JUDGE_MODEL" != "qwen2.5vl:7b" ]; then
+if [ "$JUDGE_MODEL" != "qwen3.8:27b-mlx" ]; then
   echo "AWM_JUDGE_MODEL を変更したため、拡張の設定画面でもモデル名を $JUDGE_MODEL に合わせてください。"
 fi

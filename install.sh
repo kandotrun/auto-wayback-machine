@@ -18,7 +18,7 @@ set -euo pipefail
 
 REPO_URL="https://github.com/kandotrun/auto-wayback-machine.git"
 DEST="${AUTO_WAYBACK_DIR:-$HOME/auto-wayback-machine}"
-JUDGE_MODEL="${AWM_JUDGE_MODEL:-qwen2.5vl:7b}"
+JUDGE_MODEL="${AWM_JUDGE_MODEL:-qwen3.8:27b-mlx}"
 
 if ! command -v git >/dev/null 2>&1; then
   echo "git が見つかりません。Xcode Command Line Tools を入れてください: xcode-select --install" >&2

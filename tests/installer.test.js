@@ -113,14 +113,14 @@ test("installer skip performs real extension clone and update without touching O
 test("installer installs once, starts app, waits for tags, preserves origins and reuses model data", (t) => {
   const f = fixture(t);
   const first = f.run();
-  assert.match(first.stdout, /数 GB/);
+  assert.match(first.stdout, /約 18\.2 GB/);
   assert.match(first.calls, /official-install/);
   assert.match(first.calls, /open -a Ollama --args hidden/);
   assert.match(first.calls, /launchctl setenv OLLAMA_ORIGINS https:\/\/existing.example,chrome-extension:\/\/\*/);
-  assert.match(first.calls, /ollama pull qwen2.5vl:7b/);
+  assert.match(first.calls, /ollama pull qwen3.8:27b-mlx/);
   const second = f.run();
   assert.equal((second.calls.match(/official-install/g) || []).length, 1);
-  assert.equal((second.calls.match(/ollama pull qwen2.5vl:7b/g) || []).length, 2);
+  assert.equal((second.calls.match(/ollama pull qwen3.8:27b-mlx/g) || []).length, 2);
 });
 test("installer respects existing ollama and AWM_JUDGE_MODEL override", (t) => {
   const result = fixture(t, { installed: true, model: "custom:7b" }).run();

@@ -34,7 +34,7 @@ test("settings defaults, AI endpoint permission denial/grant and persisted opt-i
   assert.equal($("outlinksMaxPerPage").value, 30);
   assert.equal($("aiCheckMode").value, "auto");
   assert.equal($("aiCheckEndpoint").value, "http://127.0.0.1:11434");
-  assert.equal($("aiCheckModel").value, "qwen2.5vl:7b");
+  assert.equal($("aiCheckModel").value, "qwen3.8:27b-mlx");
 
   $("aiCheckEndpoint").value = "http://other.example:11434";
   $("aiCheckMode").value = "on";
@@ -46,8 +46,10 @@ test("settings defaults, AI endpoint permission denial/grant and persisted opt-i
   assert.deepEqual(origins[0], { origins: ["http://other.example:11434/*"] });
 
   granted = true;
+  $("aiCheckModel").value = "custom:7b";
   await $("save").click();
   assert.equal(state.settings.aiCheckMode, "on");
+  assert.equal(state.settings.aiCheckModel, "custom:7b");
   assert.equal(state.settings.captureOutlinks, true);
   assert.equal(state.settings.outlinksMaxPerPage, 2);
   assert.equal(state.settings.enabled, false);

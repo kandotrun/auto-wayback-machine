@@ -12,9 +12,9 @@ Mac で Git と Python 3 が必要です。Git がなければ `xcode-select --i
 curl -fsSL https://raw.githubusercontent.com/kandotrun/auto-wayback-machine/main/install.sh | bash
 ```
 
-リポジトリを `~/auto-wayback-machine` に取得して PNG アイコンを生成します。続いて、Ollama がなければ [公式インストーラ](https://ollama.com/install.sh) で導入し、Mac では Ollama.app を起動します。`http://127.0.0.1:11434/api/tags` の応答を上限つき（約 2 分）で待ってから、判定モデル `qwen2.5vl:7b` を `ollama pull` します。導入済みの Ollama は再インストールしません。
+リポジトリを `~/auto-wayback-machine` に取得して PNG アイコンを生成します。続いて、Ollama がなければ [公式インストーラ](https://ollama.com/install.sh) で導入し、Mac では Ollama.app を起動します。`http://127.0.0.1:11434/api/tags` の応答を上限つき（約 2 分）で待ってから、判定モデル `qwen3.8:27b-mlx` を `ollama pull` します。導入済みの Ollama は再インストールしません。
 
-初回のモデル取得は数 GB のダウンロードが必要です。`qwen2.5vl:7b` は [公式掲載で約 6.0 GB](https://ollama.com/library/qwen2.5vl:7b) あり、Ollama 本体や実行時のメモリにも余裕が必要です。pull 前に容量の注意を表示します。取得済みのモデルデータは再利用します。
+初回のモデル取得は大容量のダウンロードが必要です。`qwen3.8:27b-mlx` はオーナーの実測で約 18.2 GB あり、Ollama 本体や実行時のメモリにも余裕が必要です。pull 前に容量の注意を表示します。取得済みのモデルデータは再利用します。
 
 Ollama の導入・起動・pull が失敗しても、警告を表示して拡張本体のインストールを続けます。AI の既定モード `auto` は、Ollama に接続できなければチェックをスキップして通常送信します。接続できるがモデルがない・判定が失敗する場合は保留になるため、必要に応じてセットアップを再実行するか設定を `off` にしてください。
 
@@ -35,7 +35,7 @@ curl -fsSL https://raw.githubusercontent.com/kandotrun/auto-wayback-machine/main
 取得するモデルは `install.sh` の `JUDGE_MODEL` 変数に定義し、`AWM_JUDGE_MODEL` で上書きできます。変更した場合は、拡張の設定画面でもモデル名を同じ値に合わせてください。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kandotrun/auto-wayback-machine/main/install.sh | AWM_JUDGE_MODEL=qwen2.5vl:7b bash
+curl -fsSL https://raw.githubusercontent.com/kandotrun/auto-wayback-machine/main/install.sh | AWM_JUDGE_MODEL=qwen3.8:27b-mlx bash
 ```
 
 手動で取得した場合は、リポジトリのルートで次を実行し、`extension/` を読み込みます。Node.js やビルドはインストールに不要です。
@@ -78,7 +78,7 @@ python3 scripts/generate_icons.py
 | ページごとのリンク上限（`outlinksMaxPerPage`） | 30 件。0〜500 件。除外・重複判定を通過した順に数える |
 | AI モード（`aiCheckMode`） | `auto`。`off` / `auto` / `on` を選択。手動保存にも同じモードを適用 |
 | AI エンドポイント（`aiCheckEndpoint`） | `http://127.0.0.1:11434` |
-| AI モデル（`aiCheckModel`） | `qwen2.5vl:7b` |
+| AI モデル（`aiCheckModel`） | `qwen3.8:27b-mlx` |
 
 除外ホストはサブドメインにも適用します。`example.com` と `*.example.com` はどちらも本体とサブドメインを除外します。「履歴と重複記録をクリア」はキューと統計もクリアします。
 
