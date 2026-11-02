@@ -40,12 +40,13 @@ fi
 
 # Permit Chrome extension origins. The client only contacts loopback; existing
 # server bind settings are left alone.
-# Preserve existing origin entries. This does not restart an already running server.
+# Preserve existing origin entries; running apps need a restart to inherit changes.
+ORIGINS_CHANGED=0
 if [ "$(uname)" = "Darwin" ]; then
   ORIGINS="$(launchctl getenv OLLAMA_ORIGINS 2>/dev/null || true)"
   case "$ORIGINS" in
     *'chrome-extension://*'*) ;;
-    *) ORIGINS="${ORIGINS:+$ORIGINS,}chrome-extension://*" ;;
+    *) ORIGINS="${ORIGINS:+$ORIGINS,}chrome-extension://*"; ORIGINS_CHANGED=1 ;;
   esac
   launchctl setenv OLLAMA_ORIGINS "$ORIGINS"
   export OLLAMA_ORIGINS="$ORIGINS"
@@ -55,7 +56,28 @@ ready() {
   curl -fsS --connect-timeout 1 --max-time 2 -o /dev/null "$OLLAMA_API/api/tags"
 }
 
-if ! ready; then
+extension_ready() {
+  curl -fsS --connect-timeout 1 --max-time 2 -o /dev/null \
+    -H "Origin: chrome-extension://auto-wayback-machine" "$OLLAMA_API/api/tags"
+}
+
+if [ "$(uname)" = "Darwin" ] && ready; then
+  if [ "$ORIGINS_CHANGED" -eq 1 ] || ! extension_ready; then
+    echo "起動中の Ollama に OLLAMA_ORIGINS を反映するため Ollama.app を再起動します。既存プロセスは launchctl setenv の変更を読み込みません。"
+    osascript -e 'tell application "Ollama" to quit'
+    STOPPED=0
+    for ((attempt = 1; attempt <= 30; attempt++)); do
+      if ! ready; then STOPPED=1; break; fi
+      if [ "$attempt" -lt 30 ]; then sleep 2; fi
+    done
+    if [ "$STOPPED" -ne 1 ]; then
+      echo "Ollama が時間内に終了しませんでした。手動で終了してセットアップを再実行してください。" >&2
+      exit 1
+    fi
+  fi
+fi
+
+if ! extension_ready; then
   echo "Ollama を起動します。API の準備を最大約 2 分待ちます。"
   if [ "$(uname)" = "Darwin" ] && open -a Ollama --args hidden; then
     : # Ollama.app is the standard macOS launcher.
@@ -64,7 +86,7 @@ if ! ready; then
   fi
   READY=0
   for ((attempt = 1; attempt <= 30; attempt++)); do
-    if ready; then READY=1; break; fi
+    if extension_ready; then READY=1; break; fi
     if [ "$attempt" -lt 30 ]; then sleep 2; fi
   done
   if [ "$READY" -ne 1 ]; then

@@ -71,12 +71,17 @@ test("network, HTTP, JSON and configuration errors fail closed without leaking e
 });
 test("hung AI requests abort and fail closed at timeout", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
+  let signal;
   const pending = checkWithAi({ url: "https://example.com" }, settings, async (_url, options) => {
+    signal = options.signal;
     await new Promise((_resolve, reject) => {
       options.signal.addEventListener("abort", () => reject(new Error("aborted")));
     });
   });
-  t.mock.timers.tick(AI_TIMEOUT_MS);
+  t.mock.timers.tick(59_999);
+  assert.equal(signal.aborted, false);
+  t.mock.timers.tick(1);
+  assert.equal(signal.aborted, true);
   assert.equal((await pending).status, "unavailable");
 });
 test("Ollama HTTP contract smoke test against a local synthetic server", async (t) => {
@@ -144,7 +149,7 @@ test("auto availability probe caches positive/negative results, coalesces and is
     assert.equal(request.method, "GET");
     assert.equal(request.body, undefined);
     if (!up) throw new Error("offline");
-    return { ok: false, status: 403 }; // Responding servers still require judgment.
+    return { ok: true, status: 200 };
   }, () => now);
   assert.deepEqual(await Promise.all([probe(settings), probe(settings)]), [true, true]);
   assert.equal(calls, 1);
@@ -172,4 +177,30 @@ test("auto availability timeout returns unavailable within its bounded probe", a
   const pending = probe(settings);
   t.mock.timers.tick(AI_PROBE_TIMEOUT_MS);
   assert.equal(await pending, false);
+});
+
+test("probe rejects HTTP errors including Origin 403 and cancels response bodies", async () => {
+  const { createAiAvailabilityProbe } = await import("../extension/shared/ai-check.js");
+  for (const status of [200, 204, 403, 404, 500, 503]) {
+    let cancelled = false;
+    const probe = createAiAvailabilityProbe(async () => ({
+      ok: status < 300, status, body: { async cancel() { cancelled = true; } },
+    }));
+    assert.equal(await probe(settings), status < 300);
+    assert.equal(cancelled, true);
+  }
+});
+test("normal judgments can take 27 seconds but abort at 60 seconds", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let signal;
+  let finish;
+  const pending = checkWithAi({ url: "https://example.com" }, settings, async (_url, request) => {
+    signal = request.signal;
+    return new Promise((resolve) => { finish = resolve; });
+  });
+  assert.equal(AI_TIMEOUT_MS, 60_000);
+  t.mock.timers.tick(27_000);
+  assert.equal(signal.aborted, false);
+  finish({ ok: true, json: async () => payload("safe", "none") });
+  assert.equal((await pending).status, "safe");
 });
