@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { aiEndpoint, interpretAiResponse, aiDisposition, checkWithAi, AI_TIMEOUT_MS } from "../extension/shared/ai-check.js";
+import { aiEndpoint, extractAiJson, interpretAiResponse, aiDisposition, checkWithAi, AI_TIMEOUT_MS } from "../extension/shared/ai-check.js";
 import { DEFAULT_SETTINGS as settings } from "../extension/shared/settings.js";
 
 const payload = (status, category, extra = {}) => ({
@@ -46,7 +46,7 @@ test("AI payload includes only URL/title data, no other queue fields, cookie or 
     assert.equal(request.redirect, "error");
     const body = JSON.parse(request.body);
     assert.equal(body.stream, false);
-    assert.equal(body.format, "json");
+    assert.equal(Object.hasOwn(body, "format"), false);
     assert.equal(body.tools, undefined);
     assert.deepEqual(JSON.parse(body.messages[1].content), { url: item.url, title: item.title });
     assert.ok(!request.body.includes("BODY") && !request.body.includes("COOKIE"));
@@ -95,4 +95,32 @@ test("Ollama HTTP contract smoke test against a local synthetic server", async (
   const result = await checkWithAi({ url: "https://example.com/public", title: "Synthetic test" },
     { ...settings, aiCheckEndpoint: "http://127.0.0.1:" + server.address().port });
   assert.equal(result.status, "safe");
+});
+
+test("MLX plain JSON content accepts fences and surrounding text with balanced quoted braces", () => {
+  const verdict = { status: "safe", category: "none" };
+  for (const content of [
+    JSON.stringify(verdict),
+    '```json\n' + JSON.stringify(verdict) + '\n```',
+    '```\n' + JSON.stringify(verdict) + '\n```',
+    '判定結果: ' + JSON.stringify(verdict) + ' 以上です。',
+    'Result:\n' + JSON.stringify({ ...verdict, ignored: { note: 'a } { brace and "quote" \\ escape' } }) + '\nEnd.',
+  ]) {
+    assert.deepEqual(interpretAiResponse({ done: true, message: { content } }), verdict);
+  }
+  assert.deepEqual(extractAiJson('Text {"status":"uncertain","category":"unknown"} End'),
+    { status: "uncertain", category: "unknown" });
+});
+test("truncated, malformed, ambiguous or invalid extracted verdicts still fail closed", () => {
+  for (const content of [
+    'Result: {"status":"safe"',
+    'Result: {status:"safe",category:"none"}',
+    'Result: {"status":"safe","category":"none"} {"status":"unsafe","category":"medical"}',
+    '```json\n{"status":"safe","category":"private_document"}\n```',
+    'No JSON here',
+    '[{"status":"safe","category":"none"}]',
+  ]) {
+    assert.deepEqual(interpretAiResponse({ done: true, message: { content } }),
+      { status: "unavailable", category: "invalid_response" });
+  }
 });

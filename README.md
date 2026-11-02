@@ -74,7 +74,9 @@ HTTP/HTTPS ページのトップフレームに `document_idle` で実行する 
 
 ### AI チェックの接続と保留
 
-Ollama の [`POST /api/chat`](https://docs.ollama.com/api/chat) を使い、`stream: false` / `format: "json"` で判定します。ベース URL または `/api/chat` までの URL を指定できます。OpenAI 互換の chat completions や API キー認証には対応していません。クラウドへ接続する場合も、Ollama のリクエスト・レスポンス形式に対応した接続先が必要です。
+Ollama の [`POST /api/chat`](https://docs.ollama.com/api/chat) を使い、`stream: false` で判定します。MLX 系モデルは structured output に HTTP 501 を返すことがあるため、`format` は指定しません。応答の `content` から素の JSON、コードフェンス内の JSON、前後に説明のある最初の JSON オブジェクトを読み取ります。形式や判定内容が不正・曖昧なら送信しません。ベース URL または `/api/chat` までの URL を指定できます。OpenAI 互換の chat completions や API キー認証には対応していません。クラウドへ接続する場合も、Ollama のリクエスト・レスポンス形式に対応した接続先が必要です。
+
+基本の接続先は、Chrome と同じ Mac 上の **`http://127.0.0.1:11434`** です。Tailscale Serve のホスト名経由では Ollama の Origin チェックで POST が 403 になる実測があるため、基本手順ではそのホスト名を使いません。
 
 設定を ON にして保存すると、接続先への Chrome のアクセス権限を要求します。拒否した場合は設定を保存しません。ローカルの Ollama を起動し、指定モデルを用意してから使ってください。Mac にモデルが存在することや、判定精度はインストーラでは検証しません。
 

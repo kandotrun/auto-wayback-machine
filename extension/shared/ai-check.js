@@ -31,10 +31,43 @@ export function aiEndpoint(raw) {
   return endpoint;
 }
 
+// MLX-backed Ollama models may reject structured output (HTTP 501).
+// Parse plain content instead. Balance braces while respecting JSON string escapes.
+export function extractAiJson(content) {
+  const text = content.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, "$1").trim();
+  try {
+    return JSON.parse(text);
+  } catch {
+    const start = text.indexOf("{");
+    if (start < 0) throw new Error("missing JSON object");
+    let depth = 0;
+    let quoted = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i++) {
+      const char = text[i];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') quoted = false;
+      } else if (char === '"') {
+        quoted = true;
+      } else if (char === "{") {
+        depth++;
+      } else if (char === "}" && --depth === 0) {
+        const result = JSON.parse(text.slice(start, i + 1));
+        // Multiple objects are ambiguous, so do not accept a later contradictory verdict.
+        if (text.slice(i + 1).includes("{")) throw new Error("ambiguous JSON");
+        return result;
+      }
+    }
+    throw new Error("incomplete JSON object");
+  }
+}
+
 export function interpretAiResponse(payload) {
   try {
     if (payload?.done !== true || typeof payload.message?.content !== "string") throw new Error();
-    const result = JSON.parse(payload.message.content);
+    const result = extractAiJson(payload.message.content);
     if (!["safe", "unsafe", "uncertain"].includes(result?.status)
         || !AI_CATEGORIES.includes(result.category)
         || (result.status === "safe" && result.category !== "none")
@@ -78,7 +111,6 @@ export async function checkWithAi(item, settings, fetcher = globalThis.fetch) {
       body: JSON.stringify({
         model: settings.aiCheckModel,
         stream: false,
-        format: "json",
         messages: [
           { role: "system", content: AI_PROMPT },
           { role: "user", content: JSON.stringify({
